@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import shutil
 import tempfile
 from typing import List
 
@@ -119,27 +120,27 @@ async def analyze_statement(
     if file.content_type not in {"application/pdf", "application/octet-stream"}:
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
-    data = await file.read()
-    if not data:
+    if not file.filename:
         raise HTTPException(status_code=400, detail="Empty file upload.")
 
     extracted_rows: List[dict[str, str]] = []
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-            tmp.write(data)
-            tmp.flush()
-            extracted_rows = extract_mpesa_transactions(tmp.name, password=password)
-    except Exception:
-        extracted_rows = []
+    raw_text = ""
 
     try:
-        with pdfplumber.open(io.BytesIO(data), password=password) as pdf:
-            pages_text = [page.extract_text() or "" for page in pdf.pages]
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp.flush()
+
+            extracted_rows = extract_mpesa_transactions(tmp.name, password=password)
+
+            if not extracted_rows:
+                with pdfplumber.open(tmp.name, password=password) as pdf:
+                    pages_text = [page.extract_text() or "" for page in pdf.pages]
+                raw_text = "\n".join(pages_text).strip()
     except Exception as exc:  # pragma: no cover - defensive for PDF parsing issues
         raise HTTPException(status_code=400, detail="Failed to read PDF.") from exc
 
-    raw_text = "\n".join(pages_text).strip()
-    if not raw_text:
+    if not extracted_rows and not raw_text:
         raise HTTPException(status_code=400, detail="No text found in PDF.")
 
     api_key = os.getenv("OPENAI_API_KEY")
