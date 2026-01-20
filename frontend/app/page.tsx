@@ -8,6 +8,7 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [password, setPassword] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -81,6 +82,18 @@ export default function Home() {
                   }
                 />
               </label>
+              <div className="w-full max-w-sm">
+                <label className="mb-2 block text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                  PDF password (optional)
+                </label>
+                <input
+                  type="password"
+                  placeholder="ID number or DOB"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-300 focus:outline-none"
+                />
+              </div>
               {fileName ? (
                 <p className="text-sm text-emerald-200">
                   Selected: {fileName}
@@ -100,6 +113,9 @@ export default function Home() {
                   try {
                     const formData = new FormData();
                     formData.append("file", selectedFile);
+                    if (password.trim()) {
+                      formData.append("password", password.trim());
+                    }
                     const response = await fetch(
                       `${apiBaseUrl}/analyze`,
                       {

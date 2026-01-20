@@ -14,6 +14,7 @@ type VerifiedPayment = {
 type AnalysisResult = {
   trust_score: number;
   verified_payments: VerifiedPayment[];
+  transactions?: Record<string, string>[];
 };
 
 export default function ResultsPage() {
@@ -150,6 +151,24 @@ export default function ResultsPage() {
             )}
           </div>
         </section>
+
+        {analysis.transactions?.length ? (
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Extracted transactions</h2>
+                <p className="text-sm text-zinc-400">
+                  Raw rows parsed from the statement (debug view).
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 max-h-[420px] overflow-auto rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-xs text-zinc-200">
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(analysis.transactions, null, 2)}
+              </pre>
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );

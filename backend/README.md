@@ -18,7 +18,7 @@
 ## Fly.io deploy
 1. Install the Fly CLI and login: `fly auth login`
 2. From `backend/`, run: `fly launch --no-deploy`
-3. Set secrets:
+3. Set secrets:RENTSCORE_WEBSITE
    - `fly secrets set OPENAI_API_KEY=...`
    - `fly secrets set RENT_SCORE_WEBSITE=https://rent-score-cyan.vercel.app`
    - `fly secrets set ALLOWED_ORIGINS=https://rent-score-cyan.vercel.app`
