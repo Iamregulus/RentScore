@@ -3,11 +3,20 @@ import json
 import os
 from typing import List
 
-import pdfplumber
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import qrcode
+from dotenv import load_dotenv
+from fastapi import Body, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel, Field
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+
+import pdfplumber
+
+load_dotenv()
 
 app = FastAPI(title="RentScore API", version="0.1.0")
 
@@ -35,6 +44,58 @@ class AnalysisResult(BaseModel):
 @app.get("/health")
 def health_check() -> dict:
     return {"status": "ok"}
+
+
+def build_certificate_pdf(analysis: AnalysisResult) -> bytes:
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=LETTER)
+    width, height = LETTER
+
+    pdf.setTitle("RentScore Certificate")
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(0.9 * inch, height - 1.2 * inch, "RentScore Certificate")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(0.9 * inch, height - 1.7 * inch, "Trust Score")
+    pdf.setFont("Helvetica-Bold", 32)
+    pdf.drawString(0.9 * inch, height - 2.3 * inch, str(analysis.trust_score))
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(0.9 * inch, height - 3.0 * inch, "Verified Payments")
+
+    pdf.setFont("Helvetica", 10)
+    start_y = height - 3.4 * inch
+    line_height = 0.25 * inch
+    max_rows = 12
+    for index, payment in enumerate(analysis.verified_payments[:max_rows]):
+        y = start_y - (index * line_height)
+        line = f"{payment.month} · KES {payment.amount:,.0f} · {payment.narrative}"
+        pdf.drawString(0.9 * inch, y, line)
+
+    if len(analysis.verified_payments) > max_rows:
+        pdf.drawString(
+            0.9 * inch,
+            start_y - (max_rows * line_height),
+            f"+ {len(analysis.verified_payments) - max_rows} more payments",
+        )
+
+    website_url = os.getenv("RENTSCORE_WEBSITE", "https://rentscore.app")
+    qr_image = qrcode.make(website_url)
+    qr_buffer = io.BytesIO()
+    qr_image.save(qr_buffer, format="PNG")
+    qr_buffer.seek(0)
+    qr_reader = ImageReader(qr_buffer)
+    qr_size = 1.2 * inch
+    qr_x = width - qr_size - 0.8 * inch
+    qr_y = 0.7 * inch
+    pdf.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
+    pdf.setFont("Helvetica", 8)
+    pdf.drawRightString(width - 0.8 * inch, qr_y - 0.15 * inch, "Scan to verify")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 @app.post("/analyze", response_model=AnalysisResult)
@@ -105,7 +166,7 @@ async def analyze_statement(file: UploadFile = File(...)) -> AnalysisResult:
 
     try:
         response = client.responses.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -117,3 +178,10 @@ async def analyze_statement(file: UploadFile = File(...)) -> AnalysisResult:
         raise HTTPException(status_code=502, detail="AI analysis failed.") from exc
 
     return AnalysisResult(**payload)
+
+
+@app.post("/certificate")
+def generate_certificate(payload: AnalysisResult = Body(...)) -> Response:
+    pdf_bytes = build_certificate_pdf(payload)
+    headers = {"Content-Disposition": "attachment; filename=rentscore-certificate.pdf"}
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)

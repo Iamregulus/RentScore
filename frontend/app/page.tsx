@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileText, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 
 export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   const handleFile = (file: File | null) => {
     if (!file) return;
     setFileName(file.name);
+    setSelectedFile(file);
+    setError("");
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -82,6 +90,52 @@ export default function Home() {
                   PDF only · Max 15MB · 12 months recommended
                 </p>
               )}
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-6 py-2 text-sm font-semibold text-white transition hover:border-emerald-300 hover:text-emerald-200 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+                onClick={async () => {
+                  if (!selectedFile || isUploading) return;
+                  setIsUploading(true);
+                  setError("");
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", selectedFile);
+                    const response = await fetch(
+                      `${apiBaseUrl}/analyze`,
+                      {
+                        method: "POST",
+                        body: formData,
+                      }
+                    );
+
+                    if (!response.ok) {
+                      const payload = await response.json().catch(() => null);
+                      throw new Error(
+                        payload?.detail ?? "Analysis failed. Please try again."
+                      );
+                    }
+
+                    const data = await response.json();
+                    sessionStorage.setItem(
+                      "rentscore:analysis",
+                      JSON.stringify(data)
+                    );
+                    router.push("/results");
+                  } catch (err) {
+                    const message =
+                      err instanceof Error ? err.message : "Upload failed.";
+                    setError(message);
+                  } finally {
+                    setIsUploading(false);
+                  }
+                }}
+                disabled={!selectedFile || isUploading}
+              >
+                {isUploading ? "Analyzing..." : "Generate Trust Score"}
+              </button>
+              {error ? (
+                <p className="text-sm text-rose-300">{error}</p>
+              ) : null}
             </div>
           </div>
 

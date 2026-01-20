@@ -12,4 +12,5 @@
 
 ## Endpoints
 - `POST /analyze` accepts a PDF and returns a trust score with payments.
+- `POST /certificate` accepts the analysis JSON and returns a PDF certificate.
 - `GET /health` for readiness checks.
