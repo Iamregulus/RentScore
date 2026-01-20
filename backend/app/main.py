@@ -90,7 +90,9 @@ def build_certificate_pdf(analysis: AnalysisResult) -> bytes:
             f"+ {len(analysis.verified_payments) - max_rows} more payments",
         )
 
-    website_url = os.getenv("RENTSCORE_WEBSITE", "https://rentscore.app")
+    website_url = os.getenv("RENTSCORE_WEBSITE") or os.getenv(
+        "RENT_SCORE_WEBSITE", "https://rentscore.app"
+    )
     qr_image = qrcode.make(website_url)
     qr_buffer = io.BytesIO()
     qr_image.save(qr_buffer, format="PNG")
