@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Optional
 
 import pdfplumber
@@ -32,8 +33,11 @@ def extract_mpesa_transactions(
     rows: List[Dict[str, str]] = []
     current_row: Dict[str, str] | None = None
 
+    max_pages = int(os.getenv("MAX_PAGES", "20"))
     with pdfplumber.open(pdf_path, password=password) as pdf:
-        for page in pdf.pages:
+        for page_index, page in enumerate(pdf.pages):
+            if page_index >= max_pages:
+                break
             tables = page.extract_tables() or []
             for table in tables:
                 if not table or len(table) < 2:

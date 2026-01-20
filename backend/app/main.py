@@ -131,12 +131,28 @@ async def analyze_statement(
             shutil.copyfileobj(file.file, tmp)
             tmp.flush()
 
-            extracted_rows = extract_mpesa_transactions(tmp.name, password=password)
+            max_pages = int(os.getenv("MAX_PAGES", "20"))
+            with pdfplumber.open(tmp.name, password=password) as pdf:
+                page_count = len(pdf.pages)
+                if page_count > max_pages:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            f"PDF has {page_count} pages; "
+                            f"limit is {max_pages}. Please upload a shorter "
+                            "statement or increase MAX_PAGES."
+                        ),
+                    )
 
-            if not extracted_rows:
-                with pdfplumber.open(tmp.name, password=password) as pdf:
-                    pages_text = [page.extract_text() or "" for page in pdf.pages]
-                raw_text = "\n".join(pages_text).strip()
+                extracted_rows = extract_mpesa_transactions(
+                    tmp.name, password=password
+                )
+
+                if not extracted_rows:
+                    pages_text = [
+                        page.extract_text() or "" for page in pdf.pages
+                    ]
+                    raw_text = "\n".join(pages_text).strip()
     except Exception as exc:  # pragma: no cover - defensive for PDF parsing issues
         raise HTTPException(status_code=400, detail="Failed to read PDF.") from exc
 
