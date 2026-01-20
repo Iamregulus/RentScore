@@ -18,11 +18,18 @@ import pdfplumber
 
 load_dotenv()
 
+def _get_allowed_origins() -> List[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", "*")
+    if raw.strip() == "*":
+        return ["*"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 app = FastAPI(title="RentScore API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
