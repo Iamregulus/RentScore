@@ -9,6 +9,14 @@ EXPECTED_HEADERS = [
     "Details",
     "Transaction Status",
     "Paid In",
+
+Set the global page background to bg-slate-50.
+
+Update the 'Start Verification' button to use bg-gradient-to-r from-emerald-500 to-emerald-600 and add a shadow-lg shadow-emerald-500/30 glow.
+
+Ensure all H1 and H2 headings are text-slate-900, not pure black.
+
+In the 'How It Works' section, give the icon circles a light green background (bg-emerald-50) to make the green icons stand out more."
     "Withdrawn",
     "Balance",
 ]
